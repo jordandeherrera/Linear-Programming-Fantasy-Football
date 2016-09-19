@@ -6,54 +6,48 @@ library(Rglpk)
 ##
 #################################
 
-final <- read.csv(file="new.csv",row.names=NULL)
+final <- read.csv(file="schedule.csv",row.names=NULL, stringsAsFactors=F)
 
-final$lower <- as.numeric(as.character(final$lower))
-final$vor <- as.numeric(as.character(final$vor))
-
-final <- final[!is.na(final$lower),]
-final <- final[!is.na(final$vor),]
+teams <- sort(unique(final$Team))
 
 # number of variables
-num.players <- length(final$player)
+num.picks <- nrow(final)
 # objective:
-obj <- final$vor
+obj <- final$ELODiff
 # the vars are represented as booleans
-var.types <- rep("B", num.players)
+var.types <- rep("B", num.picks)
 # the constraints
-matrix <- rbind(as.numeric(final$team == "QB"), # num QB
-                as.numeric(final$team == "RB"), # num RB
-                as.numeric(final$team == "RB"), # num RB
-                as.numeric(final$team == "WR"), # num WR
-                as.numeric(final$team == "WR"), # num WR
-                as.numeric(final$team == "TE"), # num TE
-                as.numeric(final$team == "TE"), # num TE
-                as.numeric(final$team %in% c("RB", "WR", "TE")),  # Num RB/WR/TE
-                diag(final$lower)
-                )         # player's risk
-direction <- c("==",
-               ">=",
-               "<=",
-               ">=",
-               "<=",
-               ">=",
-               "<=",
-               "==",
-               rep("<=", num.players)
+matrix <- rbind(diag(final$TeamELO),
+                diag(final$ELODiff)
+                )
+
+for (i in 1:length(teams)){
+  newrow <- as.numeric(final$Team == teams[i])
+  matrix <- rbind(matrix,newrow)
+}
+
+for (i in 1:17){
+  newrow <- as.numeric(final$Week == i)
+  matrix <- rbind(matrix,newrow)
+}
+
+matrix <- as.matrix(matrix)
+
+direction <- c(rep(">=", num.picks),
+               rep(">=", num.picks),
+               rep("<=", length(teams)),
+               rep("==", 17)
               )
-rhs <- c(1, # Quartbacks
-         2, # RB Min
-         3, # RB Max
-         3, # WR Min
-         4, # WR Max
-         1, # TE Min
-         2, # TE Max
-         7, # RB/WR/TE
-         rep(5, num.players)) #HERE, you need to enter a number that indicates how
-         #risk you are willing to be, 1 being low risk,
-         # 10 being high risk.  10 is max.
+rhs <- c(rep(0, num.picks),
+         rep(0, num.picks),
+         rep(1, length(teams)),
+         rep(1, 17))
 
 sol <- Rglpk_solve_LP(obj = obj, mat = matrix, dir = direction, rhs = rhs,
                       types = var.types, max = TRUE)
 
-finalSelection <- final[sol$solution == 1 & !final$playername %in% c("DST","K"),]
+finalSelection <- final[sol$solution == 1,]
+
+finalSelection <- finalSelection[order(finalSelection$Week),]
+
+write.csv(finalSelection,file="SurvivorPicks.csv")
