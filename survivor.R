@@ -9,10 +9,10 @@ library(Rglpk)
 final <- read.csv(file="schedule.csv",row.names=NULL, stringsAsFactors=F)
 
 # Only pick from selected weeks
-final <- final[final$Week %in% 5:8,-1]
+final <- final[final$Week %in% 6:8,-1]
 
 # Only pick from teams not previously selected
-noSelection <- c("HOU","DET","SEA","DEN")
+noSelection <- c("HOU","DET","SEA","DEN","NE")
 final <- final[!final$Team %in% noSelection,]
 
 teams <- sort(unique(final$Team))
